@@ -299,8 +299,8 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
     psnr_test_iter = 0.0
     # Report test and samples of training set
     if iteration in testing_iterations:
-        validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]},
-                              {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(len(scene.getTestCameras()))]})
+        validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx] for idx in range(0, len(scene.getTrainCameras()), 1000)]},
+                              {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
 
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
@@ -318,7 +318,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     
                     depth = easy_cmap(render_pkg['depth'][0])
                     alpha = torch.clamp(render_pkg['alpha'], 0.0, 1.0).repeat(3,1,1)
-                    if tb_writer and (idx < 5):
+                    if tb_writer:
                         grid = [gt_image, image, alpha, depth]
                         grid = make_grid(grid, nrow=2)
                         tb_writer.add_images(config['name'] + "_view_{}/gt_vs_render".format(viewpoint.image_name), grid[None], global_step=iteration)
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[5_00, 1_000, 3_000, 7_000, 30_000])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--start_checkpoint", type=str, default = None)

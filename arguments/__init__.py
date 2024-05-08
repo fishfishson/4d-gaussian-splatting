@@ -53,8 +53,9 @@ class ModelParams(ParamGroup):
         self._resolution = -1
         self._white_background = False
         self.data_device = "cuda"
-        self.eval = False
+        self.eval = True
         self.extension = ".png"
+        self.ply_path = 'null.ply'
         self.num_extra_pts = 0
         self.loaded_pth = ""
         self.frame_ratio = 1

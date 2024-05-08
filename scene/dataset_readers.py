@@ -382,7 +382,78 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png", num_pt
                               colors=rgb,
                               normals=normals,
                               time=times)
-        
+
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
+def readEasyMocapSceneInfo(path, white_background, eval, extension=".jpg", num_pts=100_000, time_duration=None, num_extra_pts=0, frame_ratio=1, dataloader=False, init_mode='4dgs', train_cams=['00'], test_cams=['00'], bounds=None):
+    from easymocap.mytools.camera_utils import read_cameras
+    cameras = read_cameras(path)
+    train_cameras = train_cams
+    test_cameras = test_cams
+    if train_cameras[0] == 'all':
+        train_cameras = set(list(cameras.keys())) - set(test_cams)
+    train_cam_infos = []
+    test_cam_infos = []
+    for t in range(time_duration[0], time_duration[1]):
+        frame = f'{t:06d}'
+        for cam_name in cameras.keys():
+            R = cameras[cam_name]['R'].transpose()
+            T = cameras[cam_name]['T'].reshape((3,))
+            K = cameras[cam_name]['K']
+            fl_x = K[0, 0]
+            fl_y = K[1, 1]
+            cx = K[0, 2]
+            cy = K[1, 2]
+            image_path = os.path.join(path, f'images/{cam_name}/{frame}{extension}')
+            assert os.path.exists(image_path)
+            image_name = '_'.join([cam_name, f'{frame}{extension}'])
+            if not dataloader:
+                pass
+            else:
+                image = np.empty(0)
+                width, height = imagesize.get(image_path)
+            FoVX = focal2fov(fl_x, width)
+            FoVY = focal2fov(fl_y, height)
+            timestamp = (t - time_duration[0]) / max(time_duration[1] - time_duration[0] - 1, 1)
+            assert timestamp >= 0 and timestamp <= 1
+            cam_info = CameraInfo(
+                uid=t, R=R, T=T, FovY=FoVY, FovX=FoVX, image=image, depth=None,
+                image_path=image_path, image_name=image_name, width=width, height=height, timestamp=timestamp,
+                fl_x=fl_x, fl_y=fl_y, cx=cx, cy=cy)
+            if cam_name in test_cameras:
+                test_cam_infos.append(cam_info)
+            if cam_name in train_cameras:
+                train_cam_infos.append(cam_info)
+    
+    # nerf_normalization = getNerfppNorm(train_cam_infos)
+    if init_mode == '4dgs':
+        ply_path = os.path.join(path, "dense_pcd", f"{time_duration[0]:06d}.ply")
+        pcd = fetchPly(ply_path)
+    elif init_mode == 'stgs':
+        points = []
+        colors = []
+        times = []
+        for t in range(time_duration[0], time_duration[1]):
+            ply_path = os.path.join(path, "pcds", f"{t:06d}.ply")
+            pcd = fetchPly(ply_path)
+            points.append(pcd.points)
+            colors.append(pcd.colors)
+            time = np.ones((pcd.points.shape[0], 1)) * (t - time_duration[0]) / max(time_duration[1] - time_duration[0] - 1, 1)
+            times.append(time)
+        points = np.concatenate(points, axis=0)
+        colors = np.concatenate(colors, axis=0)
+        times = np.concatenate(times, axis=0)
+        pcd = BasicPointCloud(points=points, colors=colors, normals=None, time=times)
+    else:
+        raise NotImplementedError
+    bounds = np.array(bounds)
+    radius = np.linalg.norm(0.5*(bounds[1] - bounds[0]))
+    nerf_normalization = {"translate": -0.5*(bounds[1] + bounds[0]), "radius": radius}
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
@@ -392,5 +463,6 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png", num_pt
 
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
-    "Blender" : readNerfSyntheticInfo
+    "Blender" : readNerfSyntheticInfo,
+    "EasyMocap": readEasyMocapSceneInfo,
 }

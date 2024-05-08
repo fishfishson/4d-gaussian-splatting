@@ -43,7 +43,11 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
 
-        if os.path.exists(os.path.join(args.source_path, "sparse")):
+        if os.path.exists(os.path.join(args.source_path, "intri.yml")):
+            print("Found intri.yml file, assuming EasyMocap data set!")
+            scene_info = sceneLoadTypeCallbacks["EasyMocap"](args.source_path, args.white_background, args.eval, num_pts=num_pts, time_duration=time_duration, extension=args.extension, num_extra_pts=args.num_extra_pts, frame_ratio=args.frame_ratio, dataloader=args.dataloader, init_mode=args.init_mode, train_cams=args.train_cams, test_cams=args.test_cams, bounds=args.bounds)
+            print(f"len of train cams: {len(scene_info.train_cameras)} and len of test cams: {len(scene_info.test_cameras)}")
+        elif os.path.exists(os.path.join(args.source_path, "sparse")):
             scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval, num_pts_ratio=num_pts_ratio)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
@@ -78,7 +82,7 @@ class Scene:
             self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args)
             
         if args.loaded_pth:
-            self.gaussians.create_from_pth(args.loaded_pth, self.cameras_extent)
+            self.gaussians.restore(model_args=torch.load(args.loaded_pth)[0], training_args=None)
         else:
             if self.loaded_iter:
                 self.gaussians.load_ply(os.path.join(self.model_path,

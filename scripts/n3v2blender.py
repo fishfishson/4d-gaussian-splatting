@@ -220,6 +220,8 @@ def rotmat(a, b):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser() # TODO: refine it.
     parser.add_argument("path", default="", help="input path to the video")
+    parser.add_argument("time", default=0, type=float, help="time for the initial point")
+    parser.add_argument("colmap_dir", default='tmp', type=str, help="colmap workspace directory name")
     args = parser.parse_args()
 
     # path must end with / to make sure image path is relative
@@ -231,9 +233,9 @@ if __name__ == '__main__':
     images_path = os.path.join(args.path, "images/")
     os.makedirs(images_path, exist_ok=True)
     
-    for video in videos:
-        cam_name = video.split('/')[-1].split('.')[-2]
-        do_system(f"ffmpeg -i {video} -start_number 0 {images_path}/{cam_name}_%04d.png")
+    # for video in videos:
+    #     cam_name = video.split('/')[-1].split('.')[-2]
+    #     do_system(f"ffmpeg -i {video} -start_number 0 {images_path}/{cam_name}_%04d.png")
         
     # load data
     images = [f[len(args.path):] for f in sorted(glob.glob(os.path.join(args.path, "images/", "*"))) if f.lower().endswith('png') or f.lower().endswith('jpg') or f.lower().endswith('jpeg')]
@@ -333,7 +335,7 @@ if __name__ == '__main__':
     with open(test_output_path, 'w') as f:
         json.dump(test_transforms, f, indent=2)
     
-    colmap_workspace = os.path.join(args.path, 'tmp')
+    colmap_workspace = os.path.join(args.path, args.colmap_dir)
     blender2opencv = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
     W, H, cx, cy, fx, fy = int(W), int(H), train_transforms['cx'], train_transforms['cy'], train_transforms['fl_x'], train_transforms['fl_y']
     os.makedirs(os.path.join(colmap_workspace, 'created', 'sparse'), exist_ok=True)
@@ -342,7 +344,7 @@ if __name__ == '__main__':
     with open(os.path.join(colmap_workspace, 'created/sparse/cameras.txt'), 'w') as f:
         f.write(f'1 PINHOLE {W} {H} {fx} {fy} {cx} {cy}')
         for frame in train_frames:
-            if frame['time'] == 0:
+            if frame['time'] == args.time:
                 fname = frame['file_path'].split('/')[-1] + '.png'
                 pose = np.array(frame['transform_matrix']) @ blender2opencv
                 fname2pose.update({fname: pose})
@@ -373,6 +375,7 @@ if __name__ == '__main__':
     do_system(f"colmap feature_extractor \
                 --database_path {db_path} \
                 --image_path {os.path.join(colmap_workspace, 'images')}")
+                # --SiftExtraction.use_gpu 0")
     
     camTodatabase(os.path.join(colmap_workspace, 'created/sparse/cameras.txt'), db_path)
     

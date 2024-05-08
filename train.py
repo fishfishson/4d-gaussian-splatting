@@ -28,11 +28,13 @@ import numpy as np
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from torch.utils.data import DataLoader
-try:
-    from torch.utils.tensorboard import SummaryWriter
-    TENSORBOARD_FOUND = True
-except ImportError:
-    TENSORBOARD_FOUND = False
+# try:
+#     from torch.utils.tensorboard import SummaryWriter
+#     TENSORBOARD_FOUND = True
+# except ImportError:
+#     TENSORBOARD_FOUND = False
+from torch.utils.tensorboard import SummaryWriter
+TENSORBOARD_FOUND = True
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint, debug_from,
              gaussian_dim, time_duration, num_pts, num_pts_ratio, rot_4d, force_sh_3d, batch_size):
@@ -65,7 +67,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         vars()[f"ema_{lambda_name.replace('lambda_','')}_for_log"] = 0.0
     
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
-    first_iter += 1
+    # first_iter += 1
         
     if pipe.env_map_res:
         env_map = nn.Parameter(torch.zeros((3,pipe.env_map_res, pipe.env_map_res),dtype=torch.float, device="cuda").requires_grad_(True))
@@ -170,7 +172,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 radii = torch.stack(batch_radii,1).max(1)[0]
                 
                 batch_viewspace_point_grad = torch.stack(batch_point_grad,1).sum(1)
-                batch_viewspace_point_grad[visibility_filter] = batch_viewspace_point_grad[visibility_filter] * batch_size / visibility_count[visibility_filter]
+                if dataset.correct_view_grad:
+                    factor = 1.0
+                else:
+                    factor = batch_size
+                batch_viewspace_point_grad[visibility_filter] = batch_viewspace_point_grad[visibility_filter] * factor / visibility_count[visibility_filter]
                 batch_viewspace_point_grad = batch_viewspace_point_grad.unsqueeze(1)
                 
                 if gaussians.gaussian_dim == 4:
@@ -215,7 +221,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                     progress_bar.close()
 
                 # Log and save
-                test_psnr = training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background), loss_dict)
+                if iteration == 1 or iteration % 500 == 0:
+                    _tb_writer = tb_writer
+                else:
+                    _tb_writer = False
+                test_psnr = training_report(_tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background), loss_dict)
                 if (iteration in testing_iterations):
                     if test_psnr >= best_psnr:
                         best_psnr = test_psnr
@@ -267,6 +277,7 @@ def prepare_output_and_logger(args):
     # Create Tensorboard writer
     tb_writer = None
     if TENSORBOARD_FOUND:
+        print("Tensorboard available: logging progress")
         tb_writer = SummaryWriter(args.model_path)
     else:
         print("Tensorboard not available: not logging progress")
@@ -298,10 +309,11 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
 
     psnr_test_iter = 0.0
     # Report test and samples of training set
-    if iteration in testing_iterations:
-        validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]},
-                              {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(len(scene.getTestCameras()))]})
-
+    if iteration in testing_iterations or tb_writer:
+        # validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in range(5, 30, 5)]},
+        #                       {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(len(scene.getTestCameras()))]})
+        validation_configs = ({'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(min(10, len(scene.getTestCameras())))]},)
+        
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
                 l1_test = 0.0
@@ -318,7 +330,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     
                     depth = easy_cmap(render_pkg['depth'][0])
                     alpha = torch.clamp(render_pkg['alpha'], 0.0, 1.0).repeat(3,1,1)
-                    if tb_writer and (idx < 5):
+                    if tb_writer and (idx < 3):
                         grid = [gt_image, image, alpha, depth]
                         grid = make_grid(grid, nrow=2)
                         tb_writer.add_images(config['name'] + "_view_{}/gt_vs_render".format(viewpoint.image_name), grid[None], global_step=iteration)

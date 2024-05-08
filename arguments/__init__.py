@@ -52,6 +52,11 @@ class ModelParams(ParamGroup):
         self._images = "images"
         self._resolution = -1
         self._white_background = False
+        self.train_cams = ['all']
+        self.test_cams = ['00']
+        self.correct_view_grad = True
+        self.init_mode = '4dgs'
+        self.bounds = [[-1, -1, -1], [1, 1, 1]]
         self.data_device = "cuda"
         self.eval = False
         self.extension = ".png"

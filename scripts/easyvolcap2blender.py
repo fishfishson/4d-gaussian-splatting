@@ -4,7 +4,10 @@ import argparse
 import numpy as np
 import json
 import imagesize
+
 from easyvolcap.utils.easy_utils import read_camera
+from easyvolcap.utils.base_utils import *
+from easyvolcap.utils.console_utils import *
 
 
 if __name__ == '__main__':
@@ -28,7 +31,7 @@ if __name__ == '__main__':
 
     train_frames = []
     test_frames = []
-    for k in camera_names:
+    for k in tqdm(camera_names):
         K = cameras[k]['K'].copy()
         R = cameras[k]['R'].copy()
         T = cameras[k]['T'].copy()
@@ -38,7 +41,7 @@ if __name__ == '__main__':
         w2c[:3, 3:] = T
         w2c = w2c[:3]
 
-        for i in range(N):
+        for i in tqdm(range(N)):
             image_path = join(args.path, 'images', k, images[i])
             frame = int(images[i].split('.')[0])
             W, H = imagesize.get(image_path)

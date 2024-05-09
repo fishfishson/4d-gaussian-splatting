@@ -20,8 +20,8 @@ from scene import Scene, GaussianModel
 from utils.general_utils import safe_state, knn
 import uuid
 from tqdm import tqdm
-from utils.image_utils import easy_cmap
-from easyvolcap.utils.metric_utils import psnr, ssim, lpips
+from utils.image_utils import easy_cmap, psnr
+from skimage.metrics import structural_similarity as compare_ssim
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from torchvision.utils import make_grid
@@ -34,6 +34,53 @@ try:
     TENSORBOARD_FOUND = True
 except ImportError:
     TENSORBOARD_FOUND = False
+
+
+def compute_mse(x: torch.Tensor, y: torch.Tensor):
+    return ((x.float() - y.float())**2).mean()
+
+
+def compute_lpips(x: torch.Tensor, y: torch.Tensor, net='alex'):
+    # B, 3, H, W
+    # B, 3, H, W
+    if not hasattr(compute_lpips, 'net_map'):
+        compute_lpips.net_map = dict()
+    if net not in compute_lpips.net_map:
+        import lpips as lpips_module
+        print(f'Initializing LPIPS network: {net}')
+        compute_lpips.net_map[net] = lpips_module.LPIPS(net=net, verbose=False).cuda()
+
+    return compute_lpips.net_map[net](x.cuda() * 2 - 1, y.cuda() * 2 - 1).mean()
+
+
+@torch.no_grad()
+def eval_psnr(x: torch.Tensor, y: torch.Tensor):
+    mse = compute_mse(x, y).mean()
+    psnr = (1 / mse.clip(1e-10)).log() * 10 / np.log(10)
+    return psnr.item()  # tensor to scalar
+
+
+@torch.no_grad()
+def eval_ssim(x: torch.Tensor, y: torch.Tensor):
+    return np.mean([
+        compare_ssim(
+            _x.detach().cpu().numpy(),
+            _y.detach().cpu().numpy(),
+            channel_axis=-1,
+            data_range=2.0
+        )
+        for _x, _y in zip(x, y)
+    ]).astype(float).item()
+
+
+@torch.no_grad()
+def eval_lpips(x: torch.Tensor, y: torch.Tensor):
+    if x.ndim == 3: x = x.unsqueeze(0)
+    if y.ndim == 3: y = y.unsqueeze(0)
+    x = x.permute(0, 3, 1, 2)
+    y = y.permute(0, 3, 1, 2)
+    return compute_lpips(x, y, net='vgg').item()
+
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint, debug_from,
              gaussian_dim, time_duration, num_pts, num_pts_ratio, rot_4d, force_sh_3d, batch_size):
@@ -280,7 +327,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
         tb_writer.add_scalar('iter_time', elapsed, iteration)
         tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
-        tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
+        # tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
         if loss_dict is not None:
             if "Lrigid" in loss_dict:
                 tb_writer.add_scalar('train_loss_patches/rigid_loss', loss_dict['Lrigid'].item(), iteration)
@@ -297,19 +344,17 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             if "Llaplacian" in loss_dict:
                 tb_writer.add_scalar('train_loss_patches/laplacian_loss', loss_dict['Llaplacian'].item(), iteration)
 
-    psnr_test_iter = 0.0
     # Report test and samples of training set
     if iteration in testing_iterations:
         # validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx] for idx in range(0, len(scene.getTrainCameras()), 1000)]},
         #                       {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
-        validation_configs = ({'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
+        validation_configs = ({'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]},)
 
         for config in validation_configs:
+            psnrs_test = []
+            ssims_test = []
+            lpipss_test = []
             if config['cameras'] and len(config['cameras']) > 0:
-                # l1_test = 0.0
-                psnr_test = []
-                ssim_test = []
-                lpips_test = []
                 for idx, batch_data in enumerate(tqdm(config['cameras'])):
                     gt_image, viewpoint = batch_data
                     gt_image = gt_image.cuda()
@@ -325,25 +370,32 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                         grid = make_grid(grid, nrow=2)
                         tb_writer.add_images(config['name'] + "_view_{}/gt_vs_render".format(viewpoint.image_name), grid[None], global_step=iteration)
                     
-                    import ipdb; ipdb.set_trace()
-                    # l1_test += l1_loss(image, gt_image).mean().double()
-                    psnr_test += psnr(image, gt_image).mean().double()
-                    ssim_test += ssim(image, gt_image).mean().double()
-                    msssim_test += msssim(image[None].cpu(), gt_image[None].cpu())
-                psnr_test /= len(config['cameras'])
-                l1_test /= len(config['cameras']) 
-                ssim_test /= len(config['cameras'])     
-                msssim_test /= len(config['cameras'])        
-                print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
+                    image = image[None].permute(0, 2, 3, 1)
+                    gt_image = gt_image[None].permute(0, 2, 3, 1)
+                    psnr_test = eval_psnr(image, gt_image)
+                    ssim_test = eval_ssim(image, gt_image)
+                    lpips_test = eval_lpips(image, gt_image)
+                    psnrs_test.append(psnr_test)
+                    ssims_test.append(ssim_test)
+                    lpipss_test.append(lpips_test)
+                    if tb_writer:
+                        camera_name = os.path.dirname(viewpoint.image_path).split('/')[-1]
+                        image_name = viewpoint.image_name
+                        tb_writer.add_scalar(config['name'] + f'/{camera_name}_{image_name}-psnr', psnr_test, iteration)
+                        tb_writer.add_scalar(config['name'] + f'/{camera_name}-{image_name}-ssim', ssim_test, iteration)
+                        tb_writer.add_scalar(config['name'] + f'/{camera_name}-{image_name}-lpips', lpips_test, iteration)
+                
+                psnr_mean = np.sum(psnrs_test) / len(config['cameras'])
+                ssim_mean = np.sum(ssims_test) / len(config['cameras'])   
+                lpips_mean = np.sum(lpipss_test) / len(config['cameras'])     
+                print("\n[ITER {}] Evaluating {}: PSNR {} SSIM {} LPIPS {}".format(iteration, config['name'], psnr_mean, ssim_mean, lpips_mean))
                 if tb_writer:
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - ssim', ssim_test, iteration)
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - lpips', lpips, iteration)
-                if config['name'] == 'test':
-                    psnr_test_iter = psnr_test.item()
+                    tb_writer.add_scalar(config['name'] + '/psnr', psnr_mean, iteration)
+                    tb_writer.add_scalar(config['name'] + '/ssim', ssim_mean, iteration)
+                    tb_writer.add_scalar(config['name'] + '/lpips', lpips_mean, iteration)
                     
     torch.cuda.empty_cache()
-    return psnr_test_iter
+    return psnr_mean
 
 def setup_seed(seed):
      torch.manual_seed(seed)

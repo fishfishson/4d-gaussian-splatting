@@ -1,6 +1,6 @@
 gaussian_dim: 4
-time_duration: [0.0, 10.0]
-num_pts: 300_000
+time_duration: [0.0, 1.0]
+num_pts: 1800_000
 num_pts_ratio: 1.0
 rot_4d: True
 force_sh_3d: False

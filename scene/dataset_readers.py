@@ -533,6 +533,28 @@ def readEasyVolcapSceneInfo(path, white_background, eval=True, extension='.png',
             normals = normals[time_mask]
             times = times[time_mask]
         pcd = BasicPointCloud(points=xyz, colors=rgb, normals=normals, time=times)
+    else:
+        num_extra = num_pts - pcd.points.shape[0]
+        mask = np.random.randint(0, pcd.points.shape[0], num_extra)
+        extra_xyz = pcd.points[mask] + (np.random.rand(num_extra, 3) * 2 - 1) * 0.001
+        extra_rgb = pcd.colors[mask]
+        extra_normals = pcd.normals[mask]
+        
+        xyz = np.concatenate([pcd.points, extra_xyz], axis=0)
+        rgb = np.concatenate([pcd.colors, extra_rgb], axis=0)
+        normals = np.concatenate([pcd.normals, extra_normals], axis=0)
+        if pcd.time is not None:
+            extra_times = pcd.time[mask]
+            times = np.concatenate([pcd.time, extra_times], axis=0)
+        else: 
+            times = None
+        if times is not None:
+            time_mask = (times[:,0] < time_duration[1]) & (times[:,0] > time_duration[0])
+            xyz = xyz[time_mask]
+            rgb = rgb[time_mask]
+            normals = normals[time_mask]
+            times = times[time_mask]
+        pcd = BasicPointCloud(points=xyz, colors=rgb, normals=normals, time=times)
         
     if num_extra_pts > 0:
         times = pcd.time

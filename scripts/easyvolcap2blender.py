@@ -15,10 +15,11 @@ if __name__ == '__main__':
     parser.add_argument("path", help="input path to the video")
     parser.add_argument("--fps", default=30, type=int, help="fps of the video")
     parser.add_argument("--test_views", default=[], nargs='+', help='test views')
-    parser.add_argument("--camera_dir", default='', type=str, help='camera directory')
+    parser.add_argument("--camera_dir", default='optimized', type=str, help='camera directory')
     args = parser.parse_args()
 
     # extract cameras
+    print(f'read camera from {join(args.path, args.camera_dir)}')
     cameras = read_camera(join(args.path, args.camera_dir))
     camera_names = list(cameras.keys())
     camera_names = sorted(camera_names)

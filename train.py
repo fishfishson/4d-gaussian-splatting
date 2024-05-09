@@ -20,7 +20,8 @@ from scene import Scene, GaussianModel
 from utils.general_utils import safe_state, knn
 import uuid
 from tqdm import tqdm
-from utils.image_utils import psnr, easy_cmap
+from utils.image_utils import easy_cmap
+from easyvolcap.utils.metric_utils import psnr, ssim, lpips
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from torchvision.utils import make_grid
@@ -299,15 +300,16 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
     psnr_test_iter = 0.0
     # Report test and samples of training set
     if iteration in testing_iterations:
-        validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx] for idx in range(0, len(scene.getTrainCameras()), 1000)]},
-                              {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
+        # validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx] for idx in range(0, len(scene.getTrainCameras()), 1000)]},
+        #                       {'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
+        validation_configs = ({'name': 'test', 'cameras' : [scene.getTestCameras()[idx] for idx in range(0, len(scene.getTestCameras()), 100)]})
 
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
-                l1_test = 0.0
-                psnr_test = 0.0
-                ssim_test = 0.0
-                msssim_test = 0.0
+                # l1_test = 0.0
+                psnr_test = []
+                ssim_test = []
+                lpips_test = []
                 for idx, batch_data in enumerate(tqdm(config['cameras'])):
                     gt_image, viewpoint = batch_data
                     gt_image = gt_image.cuda()
@@ -322,8 +324,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                         grid = [gt_image, image, alpha, depth]
                         grid = make_grid(grid, nrow=2)
                         tb_writer.add_images(config['name'] + "_view_{}/gt_vs_render".format(viewpoint.image_name), grid[None], global_step=iteration)
-                            
-                    l1_test += l1_loss(image, gt_image).mean().double()
+                    
+                    import ipdb; ipdb.set_trace()
+                    # l1_test += l1_loss(image, gt_image).mean().double()
                     psnr_test += psnr(image, gt_image).mean().double()
                     ssim_test += ssim(image, gt_image).mean().double()
                     msssim_test += msssim(image[None].cpu(), gt_image[None].cpu())
@@ -333,10 +336,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 msssim_test /= len(config['cameras'])        
                 print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
                 if tb_writer:
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - l1_loss', l1_test, iteration)
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - ssim', ssim_test, iteration)
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - msssim', msssim_test, iteration)
+                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - lpips', lpips, iteration)
                 if config['name'] == 'test':
                     psnr_test_iter = psnr_test.item()
                     
@@ -389,7 +391,7 @@ if __name__ == "__main__":
         recursive_merge(k, cfg)
         
     if args.exhaust_test:
-        args.test_iterations = args.test_iterations + [i for i in range(0,op.iterations,500)]
+        args.test_iterations = [i for i in range(0,op.iterations,500)]
     
     setup_seed(args.seed)
     

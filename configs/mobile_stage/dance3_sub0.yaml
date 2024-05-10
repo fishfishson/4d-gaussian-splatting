@@ -1,6 +1,6 @@
 gaussian_dim: 4
-time_duration: [20.0, 30.0]
-num_pts: 1800_000
+time_duration: [0.0, 13.333]
+num_pts: 2400_000
 num_pts_ratio: 1.0
 rot_4d: True
 force_sh_3d: False
@@ -9,15 +9,15 @@ exhaust_test: True
 
 ModelParams:
   sh_degree: 3
-  source_path: "data/N3V/flame_salmon"
-  model_path: "output/N3V/flame_salmon_sub2"
+  source_path: "data/mobile_stage/dance3"
+  model_path: "output/mobile_stage/dance3_sub0"
   images: "images"
-  resolution: 2
+  resolution: 1
   white_background: False
   data_device: "cuda"
   eval: True
   extension: ".jpg"
-  ply_path: "dense_pcds_4dgs/000600.ply"
+  ply_path: "surfs_4dgs/0000.ply"
   num_extra_pts: 0
   loaded_pth: ""
   frame_ratio: 1
@@ -33,7 +33,7 @@ PipelineParams:
   eval_shfs_4d: True
 
 OptimizationParams:
-  iterations: 30_000
+  iterations: 40_000
   position_lr_init: 0.00016
   position_t_lr_init: -1.0
   position_lr_final: 0.0000016
@@ -50,7 +50,7 @@ OptimizationParams:
   opacity_reset_interval: 3000
   densify_from_iter: 500
   densify_until_iter: 15_000
-  densify_grad_threshold: 0.0002
+  densify_grad_threshold: 0.0004
   densify_grad_t_threshold: 0.0002 / 40 # 想办法用上
   densify_until_num_points: -1
   final_prune_from_iter: -1

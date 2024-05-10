@@ -248,9 +248,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                         
                 if iteration % 10 == 0:
                     postfix = {"Loss": f"{ema_loss_for_log:.{7}f}",
-                                            "PSNR": f"{psnr_for_log:.{2}f}",
-                                            "Ll1": f"{ema_l1loss_for_log:.{4}f}",
-                                            "Lssim": f"{ema_ssimloss_for_log:.{4}f}",}
+                                            "NUM": f"{gaussians.get_xyz.shape[0]}",
+                                            "MAX_O": f"{gaussians.get_opacity.max():.{2}f}",
+                                            "MIN_O": f"{gaussians.get_opacity.min():.{2}f}",
+                                            "MAX_S": f"{gaussians.get_scaling.max():.{2}f}",
+                                            "MIN_S": f"{gaussians.get_scaling.min():.{2}f}",
+                                            "PSNR": f"{psnr_for_log:.{2}f}"}
+                                            # "Ll1": f"{ema_l1loss_for_log:.{4}f}",
+                                            # "Lssim": f"{ema_ssimloss_for_log:.{4}f}",}
                     
                     for lambda_name in lambda_all:
                         if opt.__dict__[lambda_name] > 0:
@@ -265,6 +270,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 # Log and save
                 test_psnr = training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background), loss_dict)
                 if (iteration in testing_iterations):
+                    print(f"\n[ITER {iteration}] NUM_POINTS: {gaussians.get_xyz.shape[0]}")
                     if test_psnr >= best_psnr:
                         best_psnr = test_psnr
                         print("\n[ITER {}] Saving best checkpoint".format(iteration))
@@ -344,6 +350,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             if "Llaplacian" in loss_dict:
                 tb_writer.add_scalar('train_loss_patches/laplacian_loss', loss_dict['Llaplacian'].item(), iteration)
 
+    psnr_mean = 0.
     # Report test and samples of training set
     if iteration in testing_iterations:
         # validation_configs = ({'name': 'train', 'cameras' : [scene.getTrainCameras()[idx] for idx in range(0, len(scene.getTrainCameras()), 1000)]},
@@ -381,7 +388,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     if tb_writer:
                         camera_name = os.path.dirname(viewpoint.image_path).split('/')[-1]
                         image_name = viewpoint.image_name
-                        tb_writer.add_scalar(config['name'] + f'/{camera_name}_{image_name}-psnr', psnr_test, iteration)
+                        tb_writer.add_scalar(config['name'] + f'/{camera_name}-{image_name}-psnr', psnr_test, iteration)
                         tb_writer.add_scalar(config['name'] + f'/{camera_name}-{image_name}-ssim', ssim_test, iteration)
                         tb_writer.add_scalar(config['name'] + f'/{camera_name}-{image_name}-lpips', lpips_test, iteration)
                 
@@ -443,7 +450,8 @@ if __name__ == "__main__":
         recursive_merge(k, cfg)
         
     if args.exhaust_test:
-        args.test_iterations = [i for i in range(0,op.iterations,500)]
+        # args.test_iterations = [i for i in range(0,op.iterations,1)]
+        args.test_iterations = [i for i in range(0,op.iterations,500)] + [op.iterations]
     
     setup_seed(args.seed)
     

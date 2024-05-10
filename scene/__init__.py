@@ -43,7 +43,7 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
 
-        if os.path.exists(os.path.join(args.source_path, "intri.yml")):
+        if os.path.exists(os.path.join(args.source_path, "intri.yml")) or os.path.exists(os.path.join(args.source_path, "optimized/intri.yml")):
             print("Found intri.yml file, assuming EasyVolcap data set!")
             scene_info = sceneLoadTypeCallbacks["EasyVolcap"](args.source_path, args.white_background, args.eval, ply_path=args.ply_path, num_pts=num_pts, time_duration=time_duration, extension=args.extension, num_extra_pts=args.num_extra_pts, frame_ratio=args.frame_ratio, dataloader=args.dataloader)
         elif os.path.exists(os.path.join(args.source_path, "sparse")):

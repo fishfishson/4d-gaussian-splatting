@@ -17,7 +17,7 @@ ModelParams:
   data_device: "cuda"
   eval: True
   extension: ".jpg"
-  ply_path: "dense_pcds/000900.ply"
+  ply_path: "dense_pcds_4dgs/000900.ply"
   num_extra_pts: 0
   loaded_pth: ""
   frame_ratio: 1

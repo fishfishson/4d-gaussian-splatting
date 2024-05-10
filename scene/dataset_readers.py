@@ -395,8 +395,8 @@ def readCamerasFromEasyVolcap(path, transformsfile, white_background, extension=
 
     with open(os.path.join(path, transformsfile)) as json_file:
         contents = json.load(json_file)
-    if "camera_angle_x" in contents:
-        fovx = contents["camera_angle_x"]
+    # if "camera_angle_x" in contents:
+    #     fovx = contents["camera_angle_x"]
         
     frames = contents["frames"]
     tbar = tqdm(range(len(frames)))
@@ -416,7 +416,7 @@ def readCamerasFromEasyVolcap(path, transformsfile, white_background, extension=
         # c2w = np.array(frame["transform_matrix"])
         # change from OpenGL/Blender camera axes (Y up, Z back) to COLMAP (Y down, Z forward)
         # c2w[:3, 1:3] *= -1
-        # NOTE: we don't need this?
+        # NOTE: we don't need this? transform matrix is already COLMAP format
         w2c = np.array(frame["transform_matrix"])
 
         # get the world-to-camera transform and set R, T
@@ -466,6 +466,7 @@ def readCamerasFromEasyVolcap(path, transformsfile, white_background, extension=
                         fl_x=fl_x, fl_y=fl_y, cx=cx, cy=cy)
             
         elif 'fl_x' in contents and 'fl_y' in contents and 'cx' in contents and 'cy' in contents:
+            raise NotImplementedError('does not support!')
             FovX = FovY = -1.0
             fl_x = contents['fl_x']
             fl_y = contents['fl_y']
@@ -475,6 +476,7 @@ def readCamerasFromEasyVolcap(path, transformsfile, white_background, extension=
                         image_path=image_path, image_name=image_name, width=width, height=height, timestamp=timestamp,
                         fl_x=fl_x, fl_y=fl_y, cx=cx, cy=cy)
         else:
+            raise NotImplementedError('does not support!')
             fovy = focal2fov(fov2focal(fovx, width), height)
             FovY = fovy
             FovX = fovx

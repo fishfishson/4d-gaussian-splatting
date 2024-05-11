@@ -1,6 +1,6 @@
 gaussian_dim: 4
 time_duration: [40.0, 53.334]
-num_pts: 2400_000
+num_pts: 300_000
 num_pts_ratio: 1.0
 rot_4d: True
 force_sh_3d: False
@@ -17,7 +17,7 @@ ModelParams:
   data_device: "cuda"
   eval: True
   extension: ".jpg"
-  ply_path: "surfs_4dgs/1200.ply"
+  ply_path: "dense_pcds/1200.ply"
   num_extra_pts: 0
   loaded_pth: ""
   frame_ratio: 1

@@ -49,8 +49,8 @@ OptimizationParams:
   densification_interval: 100
   opacity_reset_interval: 3000
   densify_from_iter: 500
-  densify_until_iter: 15_000
-  densify_grad_threshold: 0.0004
+  densify_until_iter: 10_000
+  densify_grad_threshold: 0.0006
   densify_grad_t_threshold: 0.0002 / 40 # 想办法用上
   densify_until_num_points: -1
   final_prune_from_iter: -1

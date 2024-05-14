@@ -17,7 +17,10 @@ class CameraDataset(Dataset):
         viewpoint_cam = self.viewpoint_stack[index]
         if viewpoint_cam.meta_only:
             with Image.open(viewpoint_cam.image_path) as image_load:
-                im_data = np.array(image_load.convert("RGBA"))
+                try:
+                    im_data = np.array(image_load.convert("RGBA"))
+                except:
+                    print(viewpoint_cam.image_path)
             norm_data = im_data / 255.0
             arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + self.bg * (1 - norm_data[:, :, 3:4])
             image_load = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")

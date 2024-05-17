@@ -88,7 +88,7 @@ class CustomViewer(Viewer):
                  camera_cfg: dotdict = None,
                  pipeline: PipelineParams = None,
                  gaussian: GaussianModel = None,
-                 duration: float = 10.,
+                 duration: list = [0., 10.],
                 ):
         super(CustomViewer, self).__init__(
             window_size=window_size,
@@ -150,7 +150,7 @@ class CustomViewer(Viewer):
             image_name=None,
             uid=0,
             data_device="cuda",
-            timestamp=batch.meta.t.item() * self.duration,
+            timestamp=batch.meta.t.item() * (self.duration[1] - self.duration[0]) + self.duration[0],
             cx=K_np[0, 2],
             cy=K_np[1, 2],
             fl_x=K_np[0, 0],
@@ -244,7 +244,7 @@ def main(cfg):
         camera_cfg=camera_cfg,
         pipeline=pipeline,
         gaussian=gaussians,
-        duration=cfg.time_duration[1] - cfg.time_duration[0]
+        duration=cfg.time_duration
     )
         
     viewer.run()

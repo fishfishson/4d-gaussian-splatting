@@ -78,7 +78,7 @@ class Scene:
             print("Loading Training Cameras")
             self.train_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.train_cameras, resolution_scale, args)
             print("Loading Test Cameras")
-            self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args)
+            self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras[::100], resolution_scale, args)
             
         if args.loaded_pth:
             self.gaussians.restore(model_args=torch.load(args.loaded_pth)[0], training_args=None)

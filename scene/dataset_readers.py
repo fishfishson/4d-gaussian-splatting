@@ -426,6 +426,10 @@ def readCamerasFromEasyVolcap(path, transformsfile, white_background, extension=
 
         image_path = os.path.join(path, cam_name) # .replace('hdImgs_unditorted', 'hdImgs_unditorted_rgba').replace('.jpg', '.png')
         image_name = Path(cam_name).stem
+        if not os.path.exists(image_path):
+            image_dir = os.path.dirname(image_path)
+            image_name = image_name[2:]
+            image_path = os.path.join(image_dir, image_name + extension)
         
         if not dataloader:
             with Image.open(image_path) as image_load:
@@ -506,7 +510,7 @@ def readEasyVolcapSceneInfo(path, white_background, eval=True, extension='.png',
 
     ply_path = os.path.join(path, ply_path)
     if not os.path.exists(ply_path):
-        raise Exception("EasyVolcap scenes should have a points3d.ply file!")
+        print("EasyVolcap scenes should have a points3d.ply file!")
         # Since this data set has no colmap data, we start with random points
         print(f"Generating random point cloud ({num_pts})...")
         
@@ -514,9 +518,10 @@ def readEasyVolcapSceneInfo(path, white_background, eval=True, extension='.png',
         xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
         shs = np.random.random((num_pts, 3)) / 255.0
         pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
-
-        storePly(ply_path, xyz, SH2RGB(shs) * 255)
-    pcd = fetchPly(ply_path)
+        # NOTE: We dont save ply here!
+        # storePly(ply_path, xyz, SH2RGB(shs) * 255)
+    else:
+        pcd = fetchPly(ply_path)
 
     if pcd.points.shape[0] > num_pts:
         mask = np.random.randint(0, pcd.points.shape[0], num_pts)

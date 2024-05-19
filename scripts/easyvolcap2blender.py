@@ -14,8 +14,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser() # TODO: refine it.
     parser.add_argument("path", help="input path to the video")
     parser.add_argument("--fps", default=30, type=int, help="fps of the video")
+    parser.add_argument("--frame_sample", default=[0,300,1], type=float, nargs=3)
     parser.add_argument("--test_views", default=[], nargs='+', help='test views')
     parser.add_argument("--camera_dir", default='optimized', type=str, help='camera directory')
+    parser.add_argument("--include_test", action='store_true', default=False)
     args = parser.parse_args()
 
     # extract cameras
@@ -26,7 +28,7 @@ if __name__ == '__main__':
     print(camera_names)
 
     images = os.listdir(join(args.path, 'images', camera_names[0]))
-    images = sorted(images)
+    images = sorted(images)[args.frame_sample[0]:args.frame_sample[1]:args.frame_sample[2]]
     N = len(images)
     print(N)
 
@@ -61,10 +63,15 @@ if __name__ == '__main__':
                 'transform_matrix': w2c.tolist(),
                 'time': frame / args.fps
             }]
-            if k in args.test_views:
-                test_frames += cam_frames
-            else:
+            if args.include_test:
+                if k in args.test_views:
+                    test_frames += cam_frames
                 train_frames += cam_frames
+            else:
+                if k in args.test_views:
+                    test_frames += cam_frames
+                else:
+                    train_frames += cam_frames
 
     train_transforms = {
         'frames': train_frames,

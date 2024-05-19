@@ -226,10 +226,15 @@ def main(cfg):
     default_camera = cameras[camera_names[0]]
     # downsample
     K = default_camera['K'].copy()
-    K[:2] *= 0.5
-    default_camera['K'] = K
-    default_camera['W'] = int(K[0,2]*2)
-    default_camera['H'] = int(K[1,2]*2)
+    if 'flame_salmon' in model.source_path:
+        K[:2] *= 0.5
+        default_camera['K'] = K
+        default_camera['W'] = int(K[0,2]*2)
+        default_camera['H'] = int(K[1,2]*2)
+    else:
+        default_camera['K'] = K
+        default_camera['H'] = 1080
+        default_camera['W'] = 1920
 
     camera_cfg = dotdict(
         H=default_camera['H'],

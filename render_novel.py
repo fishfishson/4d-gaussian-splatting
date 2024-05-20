@@ -13,9 +13,11 @@ from tqdm import tqdm
 from scene.dataset_readers import readCamerasFromEasyVolcap
 from scene.cameras import Camera
 from utils.camera_utils import cameraList_from_camInfos
+from utils.image_utils import easy_cmap
 from gaussian_renderer import GaussianModel, render
 import torchvision
 
+from easyvolcap.utils.color_utils import colormap
 from easyvolcap.utils.easy_utils import read_camera
 from easyvolcap.utils.data_utils import generate_video
 
@@ -80,6 +82,21 @@ class CameraInfo(NamedTuple):
     cy: float = -1.0
 
 
+def normalize_depth(depth: torch.Tensor, p: float = 0.01):
+    n = int(depth.numel() * p)
+    near = depth.ravel().topk(n, largest=False)[0].max()  # a simple version of percentile
+    far = depth.ravel().topk(n, largest=True)[0].min()  # a simple version of percentile
+    depth = 1 - (depth - near) / (far - near)
+    depth = depth.clip(0, 1)
+    return depth
+
+
+def depth_curve_fn(depth: torch.Tensor, p: float = 0.01, cm: str = 'linear'):
+    depth = normalize_depth(depth)
+    depth = colormap(depth, cm)
+    return depth
+
+
 def main(args, cfg):
     model = ModelParams()
     pipeline = PipelineParams()
@@ -141,15 +158,19 @@ def main(args, cfg):
             image_path=None,
             meta_only=True,
         )
-        out = render(gaussian_camera.cuda(), gaussians, pipeline, background)["render"]
-        torchvision.utils.save_image(out, join(output_path, k + ".jpg"))
-    result_str = f'"{output_path}/*jpg"'
-    output_path = join(args.output, f'{seq}.mp4')
-    try:
-        generate_video(result_str, output_path, fps=60)  # one video for one type?
-    except RuntimeError as e:
-        print('Error encountered during video composition, will retry without hardware encoding')
-        generate_video(result_str, output_path, fps=60, hwaccel='none', vcodec='libx265')  # one video for one type?
+        out = render(gaussian_camera.cuda(), gaussians, pipeline, background)
+        rgb = out['render']
+        # dpt = easy_cmap(out['depth'][0])
+        dpt = depth_curve_fn(out['depth'][0], cm='linear')
+        dpt = dpt.permute(2, 0, 1)
+        torchvision.utils.save_image(rgb, join(output_path, k + "_rgb.jpg"))
+        torchvision.utils.save_image(dpt, join(output_path, k + "_dpt.jpg"))
+    result_str = f'"{output_path}/*_rgb.jpg"'
+    rgb_output_path = join(args.output, f'{seq}_rgb.mp4')
+    generate_video(result_str, rgb_output_path, fps=60, hwaccel='none', vcodec='libx265')  # one video for one type?
+    result_str = f'"{output_path}/*_dpt.jpg"'
+    dpt_output_path = join(args.output, f'{seq}_dpt.mp4')
+    generate_video(result_str, dpt_output_path, fps=60, hwaccel='none', vcodec='libx265')  # one video for one type?
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Render Novel')

@@ -10,7 +10,7 @@ exhaust_test: True
 ModelParams:
   sh_degree: 3
   source_path: "data/selfcap/0512_bike"
-  model_path: "output2/selfcap/0512_bike_dense"
+  model_path: "output/selfcap/0512_bike"
   images: "images"
   resolution: 1
   white_background: False

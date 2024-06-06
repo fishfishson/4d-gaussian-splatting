@@ -141,7 +141,7 @@ class CustomViewer(Viewer):
         T_np = batch.T.numpy().reshape(3,)
         gaussian_camera = Camera(
             colmap_id=0,
-            R=R_np,
+            R=R_np.T,
             T=T_np,
             FoVx=-1.0,
             FoVy=-1.0,
@@ -231,18 +231,65 @@ def main(cfg):
         default_camera['K'] = K
         default_camera['W'] = int(K[0,2]*2)
         default_camera['H'] = int(K[1,2]*2)
+        camera_cfg = dotdict(
+            H=default_camera['H'],
+            W=default_camera['W'],
+            K=default_camera['K'],
+            R=default_camera['R'],
+            T=default_camera['T'],
+        )
+    elif 'bike' in model.source_path:
+        print('bike scene')
+        default_camera['K'] = K
+        default_camera['H'] = 1080
+        default_camera['W'] = 1080
+        world_up = [0, -1, 0]
+        camera_cfg = dotdict(
+            H=default_camera['H'],
+            W=default_camera['W'],
+            K=default_camera['K'],
+            R=default_camera['R'],
+            T=default_camera['T'],
+            world_up=world_up,
+        )
+    elif 'goodcha' in model.source_path:
+        print('goodcha scene')
+        R = np.array([[0.7493726045, 0.0747454784, -0.6579162660], 
+                      [-0.0250241057, 0.9960953519, 0.0846631210], 
+                      [0.6616755199, -0.0469804573, 0.7483170070]
+                    ])
+        T = np.array([1.775169, -0.025225, 1.74254])
+        K = np.array([[1515.7024299390, 0.0000000000, 527.2500000000], 
+                      [0.0000000000, 1514.0517651239, 940.0000000000], 
+                      [0.0000000000, 0.0000000000, 1.0000000000]
+                    ])
+        world_up = [0, -1, 0]
+        origin = [0.68, 1.06, 5.32]
+        default_camera['K'] = K
+        default_camera['H'] = 1880
+        default_camera['W'] = 1539
+        default_camera['R'] = R
+        default_camera['T'] = T
+        camera_cfg = dotdict(
+            H=default_camera['H'],
+            W=default_camera['W'],
+            K=default_camera['K'],
+            R=default_camera['R'],
+            T=default_camera['T'],
+            world_up=world_up,
+            origin=origin,
+        )
     else:
         default_camera['K'] = K
         default_camera['H'] = 1080
         default_camera['W'] = 1920
-
-    camera_cfg = dotdict(
-        H=default_camera['H'],
-        W=default_camera['W'],
-        K=default_camera['K'],
-        R=default_camera['R'],
-        T=default_camera['T'],
-    )
+        camera_cfg = dotdict(
+            H=default_camera['H'],
+            W=default_camera['W'],
+            K=default_camera['K'],
+            R=default_camera['R'],
+            T=default_camera['T'],
+        )
 
     viewer = CustomViewer(
         window_size=[default_camera['H'], default_camera['W']],

@@ -10,7 +10,7 @@ exhaust_test: True
 ModelParams:
   sh_degree: 3
   source_path: "data/enerf_outdoor/actor2_3"
-  model_path: "output2/enerf_outdoor/actor2_3_sub2"
+  model_path: "output/enerf_outdoor/actor2_3_sub2"
   images: "images"
   resolution: 1
   white_background: False

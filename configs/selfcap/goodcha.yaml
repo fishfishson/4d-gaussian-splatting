@@ -1,5 +1,5 @@
 gaussian_dim: 4
-time_duration: [250.0, 255.0]
+time_duration: [0.0, 5.0]
 num_pts: 300_000
 num_pts_ratio: 1.0
 rot_4d: True
@@ -9,15 +9,15 @@ exhaust_test: True
 
 ModelParams:
   sh_degree: 3
-  source_path: "data/selfcap2/0505_goodcha"
-  model_path: "output2/selfcap/0505_goodcha"
+  source_path: "data/selfcap/0505_goodcha"
+  model_path: "output/selfcap/0505_goodcha"
   images: "images"
-  resolution: 1
+  resolution: 2
   white_background: False
   data_device: "cuda"
   eval: True
   extension: ".jpg"
-  ply_path: "dense_pcds/015000.ply"
+  ply_path: "dense_pcds/000000.ply"
   num_extra_pts: 0
   loaded_pth: ""
   frame_ratio: 1

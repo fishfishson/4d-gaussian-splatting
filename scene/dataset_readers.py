@@ -510,87 +510,29 @@ def readEasyVolcapSceneInfo(path, white_background, eval=True, extension='.png',
 
     ply_path = os.path.join(path, ply_path)
     if not os.path.exists(ply_path):
-        print("EasyVolcap scenes should have a points3d.ply file!")
-        # Since this data set has no colmap data, we start with random points
-        print(f"Generating random point cloud ({num_pts})...")
+        raise FileNotFoundError("EasyVolcap scenes should have a points3d.ply file!")
+    elif os.path.isdir(ply_path):
+        points_files = [os.path.join(ply_path, f) for f in os.listdir(ply_path)]
+        points_int = [int(f.split('/')[-1].split('.')[0]) for f in points_files]
+         
         
-        # We create random points inside the bounds of the synthetic Blender scenes
-        xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
-        shs = np.random.random((num_pts, 3)) / 255.0
-        pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
-        # NOTE: We dont save ply here!
-        # storePly(ply_path, xyz, SH2RGB(shs) * 255)
     else:
         pcd = fetchPly(ply_path)
 
-    if pcd.points.shape[0] > num_pts:
-        mask = np.random.randint(0, pcd.points.shape[0], num_pts)
-        # mask = fps(torch.from_numpy(pcd.points).cuda()[None], num_pts).cpu().numpy()
-        if pcd.time is not None:
-            times = pcd.time[mask]
-        else:
-            times = None
-        xyz = pcd.points[mask]
-        rgb = pcd.colors[mask]
-        normals = pcd.normals[mask]
-        if times is not None:
-            time_mask = (times[:,0] < time_duration[1]) & (times[:,0] > time_duration[0])
-            xyz = xyz[time_mask]
-            rgb = rgb[time_mask]
-            normals = normals[time_mask]
-            times = times[time_mask]
-        pcd = BasicPointCloud(points=xyz, colors=rgb, normals=normals, time=times)
-    else:
-        num_extra = num_pts - pcd.points.shape[0]
-        mask = np.random.randint(0, pcd.points.shape[0], num_extra)
-        extra_xyz = pcd.points[mask] + (np.random.rand(num_extra, 3) * 2 - 1) * 0.001
-        extra_rgb = pcd.colors[mask]
-        extra_normals = pcd.normals[mask]
-        
-        xyz = np.concatenate([pcd.points, extra_xyz], axis=0)
-        rgb = np.concatenate([pcd.colors, extra_rgb], axis=0)
-        normals = np.concatenate([pcd.normals, extra_normals], axis=0)
-        if pcd.time is not None:
-            extra_times = pcd.time[mask]
-            times = np.concatenate([pcd.time, extra_times], axis=0)
-        else: 
-            times = None
-        if times is not None:
-            time_mask = (times[:,0] < time_duration[1]) & (times[:,0] > time_duration[0])
-            xyz = xyz[time_mask]
-            rgb = rgb[time_mask]
-            normals = normals[time_mask]
-            times = times[time_mask]
-        pcd = BasicPointCloud(points=xyz, colors=rgb, normals=normals, time=times)
-        
-    if num_extra_pts > 0:
+    if pcd.time is not None:
         times = pcd.time
-        xyz = pcd.points
-        rgb = pcd.colors
-        normals = pcd.normals
-        bound_min, bound_max = xyz.min(0), xyz.max(0)
-        radius = 60.0 # (bound_max - bound_min).mean() + 10
-        phi = 2.0 * np.pi * np.random.rand(num_extra_pts)
-        theta = np.arccos(2.0 * np.random.rand(num_extra_pts) - 1.0)
-        x = radius * np.sin(theta) * np.cos(phi)
-        y = radius * np.sin(theta) * np.sin(phi)
-        z = radius * np.cos(theta)
-        xyz_extra = np.stack([x, y, z], axis=1)
-        normals_extra = np.zeros_like(xyz_extra)
-        rgb_extra = np.ones((num_extra_pts, 3)) / 2
-        
-        xyz = np.concatenate([xyz, xyz_extra], axis=0)
-        rgb = np.concatenate([rgb, rgb_extra], axis=0)
-        normals = np.concatenate([normals, normals_extra], axis=0)
-        
-        if times is not None:
-            times_extra = torch.zeros(((num_extra_pts, 3))) + (time_duration[0] + time_duration[1]) / 2
-            times = np.concatenate([times, times_extra], axis=0)
-            
-        pcd = BasicPointCloud(points=xyz, 
-                              colors=rgb,
-                              normals=normals,
-                              time=times)
+    else:
+        times = None
+    xyz = pcd.points
+    rgb = pcd.colors
+    normals = pcd.normals
+    if times is not None:
+        time_mask = (times[:,0] < time_duration[1]) & (times[:,0] > time_duration[0])
+        xyz = xyz[time_mask]
+        rgb = rgb[time_mask]
+        normals = normals[time_mask]
+        times = times[time_mask]
+    pcd = BasicPointCloud(points=xyz, colors=rgb, normals=normals, time=times)
         
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
